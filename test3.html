@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ИТИС пятнашки</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  background: linear-gradient(135deg, #f4f6fb, #e9ecf5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+}
+
+h1 {
+  margin: 20px 0 10px;
+  font-size: clamp(22px, 5vw, 36px);
+  font-weight: 700;
+  color: #2b2f42;
+  text-align: center;
+}
+
+#board {
+  position: relative;
+  width: min(92vw, 420px);
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  background: #fff;
+  touch-action: manipulation;
+}
+
+.tile {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(0,0,0,0.08);
+  background-image: url("https://sun9-56.userapi.com/s/v1/ig2/iyEcbTm13TNXasiD2aVA8bqC6jDLslWWuFQZU96cfWAZdSdQkOB2B0Sw8U9tz070_hppvt4__L0gyObm4OMF1sgZ.jpg?quality=95&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360,480x480,540x540,640x640,720x720,1080x1080&from=bu&cs=1080x0");
+  background-size: 400% 400%;
+  cursor: pointer;
+  transition: top 0.25s ease, left 0.25s ease, transform 0.1s ease;
+}
+
+.tile:active {
+  transform: scale(0.96);
+}
+
+.number {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: clamp(10px, 2.5vw, 14px);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.45);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>ИТИС пятнашки</h1>
+<div id="board"></div>
+
+<script>
+const SIZE = 4;
+const board = document.getElementById("board");
+
+let tiles = [];
+let empty = { x: 3, y: 3 };
+
+function tileSize() {
+  return board.clientWidth / SIZE;
+}
+
+function createTiles() {
+  for (let i = 0; i < 15; i++) {
+    const div = document.createElement("div");
+    div.className = "tile";
+
+    const num = document.createElement("div");
+    num.className = "number";
+    num.textContent = i + 1;
+    div.appendChild(num);
+
+    const x = i % SIZE;
+    const y = Math.floor(i / SIZE);
+
+    tiles.push({ id: i + 1, x, y, el: div });
+
+    board.appendChild(div);
+    div.addEventListener("click", () => tryMove(i + 1));
+  }
+
+  render();
+}
+
+function render() {
+  const T = tileSize();
+
+  tiles.forEach((t, i) => {
+    t.el.style.width = T + "px";
+    t.el.style.height = T + "px";
+    t.el.style.left = t.x * T + "px";
+    t.el.style.top = t.y * T + "px";
+
+    const imgX = ((t.id - 1) % SIZE) * 100 / (SIZE - 1);
+    const imgY = Math.floor((t.id - 1) / SIZE) * 100 / (SIZE - 1);
+    t.el.style.backgroundPosition = imgX + "% " + imgY + "%";
+  });
+}
+
+function getTile(id) {
+  return tiles.find(t => t.id === id);
+}
+
+function tryMove(id) {
+  const t = getTile(id);
+  const dx = Math.abs(t.x - empty.x);
+  const dy = Math.abs(t.y - empty.y);
+
+  if (dx + dy === 1) {
+    const old = { x: t.x, y: t.y };
+    t.x = empty.x;
+    t.y = empty.y;
+    empty = old;
+    render();
+  }
+}
+
+function shuffle(moves = 300) {
+  for (let i = 0; i < moves; i++) {
+    const neighbors = tiles.filter(t => {
+      const dx = Math.abs(t.x - empty.x);
+      const dy = Math.abs(t.y - empty.y);
+      return dx + dy === 1;
+    });
+
+    const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+    const old = { x: pick.x, y: pick.y };
+    pick.x = empty.x;
+    pick.y = empty.y;
+    empty = old;
+  }
+
+  render();
+}
+
+window.addEventListener("resize", render);
+
+createTiles();
+shuffle();
+</script>
+
+</body>
+</html>
