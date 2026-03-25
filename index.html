@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ИТИС пятнашки</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
 
 <style>
 body {
@@ -16,6 +16,7 @@ body {
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1 {
@@ -35,6 +36,7 @@ h1 {
   box-shadow: 0 12px 30px rgba(0,0,0,0.15);
   background: #fff;
   touch-action: manipulation;
+  z-index: 2;
 }
 
 .tile {
@@ -42,7 +44,7 @@ h1 {
   box-sizing: border-box;
   border: 1px solid rgba(0,0,0,0.08);
   background-image: url("https://sun9-56.userapi.com/s/v1/ig2/iyEcbTm13TNXasiD2aVA8bqC6jDLslWWuFQZU96cfWAZdSdQkOB2B0Sw8U9tz070_hppvt4__L0gyObm4OMF1sgZ.jpg?quality=95&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360,480x480,540x540,640x640,720x720,1080x1080&from=bu&cs=1080x0");
-  background-size: 400% 400%;
+  background-size: 300% 300%;
   cursor: pointer;
   transition: top 0.25s ease, left 0.25s ease, transform 0.1s ease;
 }
@@ -63,6 +65,55 @@ h1 {
   padding: 1px 5px;
   border-radius: 6px;
 }
+
+#fireworks {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 20;
+  display: none;
+}
+
+#winOverlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+#winMessage {
+  font-size: clamp(28px, 6vw, 64px);
+  font-weight: 800;
+  color: #ffffff;
+  text-align: center;
+  padding: 20px 30px;
+  border-radius: 22px;
+  background: rgba(43, 47, 66, 0.72);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+  animation: popIn 0.6s ease;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 </style>
 </head>
 
@@ -71,19 +122,29 @@ h1 {
 <h1>ИТИС пятнашки</h1>
 <div id="board"></div>
 
+<canvas id="fireworks"></canvas>
+
+<div id="winOverlay">
+  <div id="winMessage">Ура, ты выиграл!</div>
+</div>
+
 <script>
-const SIZE = 4;
+const SIZE = 3;
 const board = document.getElementById("board");
+const fireworksCanvas = document.getElementById("fireworks");
+const winOverlay = document.getElementById("winOverlay");
+const fwCtx = fireworksCanvas.getContext("2d");
 
 let tiles = [];
-let empty = { x: 3, y: 3 };
+let empty = { x: 2, y: 2 };
+let hasWon = false;
 
 function tileSize() {
   return board.clientWidth / SIZE;
 }
 
 function createTiles() {
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < SIZE * SIZE - 1; i++) {
     const div = document.createElement("div");
     div.className = "tile";
 
@@ -107,7 +168,7 @@ function createTiles() {
 function render() {
   const T = tileSize();
 
-  tiles.forEach((t, i) => {
+  tiles.forEach((t) => {
     t.el.style.width = T + "px";
     t.el.style.height = T + "px";
     t.el.style.left = t.x * T + "px";
@@ -123,7 +184,17 @@ function getTile(id) {
   return tiles.find(t => t.id === id);
 }
 
+function isSolved() {
+  return tiles.every(t => {
+    const correctX = (t.id - 1) % SIZE;
+    const correctY = Math.floor((t.id - 1) / SIZE);
+    return t.x === correctX && t.y === correctY;
+  }) && empty.x === SIZE - 1 && empty.y === SIZE - 1;
+}
+
 function tryMove(id) {
+  if (hasWon) return;
+
   const t = getTile(id);
   const dx = Math.abs(t.x - empty.x);
   const dy = Math.abs(t.y - empty.y);
@@ -134,28 +205,147 @@ function tryMove(id) {
     t.y = empty.y;
     empty = old;
     render();
+
+    if (isSolved()) {
+      triggerWin();
+    }
   }
 }
 
-function shuffle(moves = 300) {
-  for (let i = 0; i < moves; i++) {
-    const neighbors = tiles.filter(t => {
-      const dx = Math.abs(t.x - empty.x);
-      const dy = Math.abs(t.y - empty.y);
-      return dx + dy === 1;
-    });
+function shuffle(moves = 200) {
+  hasWon = false;
+  board.style.pointerEvents = "auto";
+  winOverlay.style.display = "none";
+  fireworksCanvas.style.display = "none";
 
-    const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
-    const old = { x: pick.x, y: pick.y };
-    pick.x = empty.x;
-    pick.y = empty.y;
-    empty = old;
-  }
+  do {
+    tiles.forEach((t, i) => {
+      t.x = i % SIZE;
+      t.y = Math.floor(i / SIZE);
+    });
+    empty = { x: SIZE - 1, y: SIZE - 1 };
+
+    for (let i = 0; i < moves; i++) {
+      const neighbors = tiles.filter(t => {
+        const dx = Math.abs(t.x - empty.x);
+        const dy = Math.abs(t.y - empty.y);
+        return dx + dy === 1;
+      });
+
+      const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+      const old = { x: pick.x, y: pick.y };
+      pick.x = empty.x;
+      pick.y = empty.y;
+      empty = old;
+    }
+  } while (isSolved());
 
   render();
 }
 
-window.addEventListener("resize", render);
+function triggerWin() {
+  hasWon = true;
+  board.style.pointerEvents = "none";
+  winOverlay.style.display = "flex";
+  startFireworks();
+}
+
+/* ---------- Салют ---------- */
+
+let particles = [];
+let fireworksRunning = false;
+let animationId = null;
+let fireworkEndTime = 0;
+
+function resizeFireworksCanvas() {
+  fireworksCanvas.width = window.innerWidth;
+  fireworksCanvas.height = window.innerHeight;
+}
+
+function random(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+function createBurst(x, y) {
+  const count = 55;
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = random(2, 7);
+
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: random(50, 90),
+      maxLife: random(50, 90),
+      size: random(2, 4),
+      hue: Math.floor(Math.random() * 360)
+    });
+  }
+}
+
+function updateFireworks() {
+  fwCtx.clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
+
+  if (Date.now() < fireworkEndTime && Math.random() < 0.12) {
+    createBurst(
+      random(80, fireworksCanvas.width - 80),
+      random(80, fireworksCanvas.height * 0.55)
+    );
+  }
+
+  particles.forEach((p) => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.life -= 1;
+  });
+
+  particles = particles.filter(p => p.life > 0);
+
+  particles.forEach((p) => {
+    const alpha = p.life / p.maxLife;
+    fwCtx.beginPath();
+    fwCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    fwCtx.fillStyle = `hsla(${p.hue}, 100%, 60%, ${alpha})`;
+    fwCtx.fill();
+  });
+
+  if (Date.now() < fireworkEndTime || particles.length > 0) {
+    animationId = requestAnimationFrame(updateFireworks);
+  } else {
+    fireworksRunning = false;
+    fireworksCanvas.style.display = "none";
+    cancelAnimationFrame(animationId);
+  }
+}
+
+function startFireworks() {
+  if (fireworksRunning) return;
+
+  fireworksRunning = true;
+  fireworksCanvas.style.display = "block";
+  resizeFireworksCanvas();
+
+  particles = [];
+  fireworkEndTime = Date.now() + 4500;
+
+  for (let i = 0; i < 4; i++) {
+    createBurst(
+      random(100, fireworksCanvas.width - 100),
+      random(100, fireworksCanvas.height * 0.5)
+    );
+  }
+
+  updateFireworks();
+}
+
+window.addEventListener("resize", () => {
+  render();
+  resizeFireworksCanvas();
+});
 
 createTiles();
 shuffle();
