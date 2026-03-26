@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>ИТИС пятнашки!</title>
+<title>ИТИС пятнашки</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
 
@@ -27,6 +27,73 @@ h1 {
   text-align: center;
 }
 
+#menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  margin: 30px 16px 20px;
+  text-align: center;
+}
+
+#menu p {
+  margin: 0;
+  font-size: clamp(16px, 3vw, 22px);
+  color: #2b2f42;
+  font-weight: 700;
+}
+
+.menu-buttons {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.level-btn, #backBtn {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 22px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: #2b2f42;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.level-btn:hover, #backBtn:hover {
+  transform: translateY(-2px);
+}
+
+.level-btn:active, #backBtn:active {
+  transform: scale(0.97);
+}
+
+#gameWrap {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+#topBar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#levelLabel {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2b2f42;
+}
+
 #board {
   position: relative;
   width: min(92vw, 420px);
@@ -44,7 +111,6 @@ h1 {
   box-sizing: border-box;
   border: 1px solid rgba(0,0,0,0.08);
   background-image: url("https://sun9-56.userapi.com/s/v1/ig2/iyEcbTm13TNXasiD2aVA8bqC6jDLslWWuFQZU96cfWAZdSdQkOB2B0Sw8U9tz070_hppvt4__L0gyObm4OMF1sgZ.jpg?quality=95&as=32x32,48x48,72x72,108x108,160x160,240x240,360x360,480x480,540x540,640x640,720x720,1080x1080&from=bu&cs=1080x0");
-  background-size: 300% 300%;
   cursor: pointer;
   transition: top 0.25s ease, left 0.25s ease, transform 0.1s ease;
 }
@@ -120,7 +186,22 @@ h1 {
 <body>
 
 <h1>ИТИС пятнашки</h1>
-<div id="board"></div>
+
+<div id="menu">
+  <p>Выбери уровень сложности</p>
+  <div class="menu-buttons">
+    <button class="level-btn" data-size="3">3 × 3</button>
+    <button class="level-btn" data-size="4">4 × 4</button>
+  </div>
+</div>
+
+<div id="gameWrap">
+  <div id="topBar">
+    <div id="levelLabel"></div>
+    <button id="backBtn">Сменить уровень</button>
+  </div>
+  <div id="board"></div>
+</div>
 
 <canvas id="fireworks"></canvas>
 
@@ -129,24 +210,45 @@ h1 {
 </div>
 
 <script>
-const SIZE = 3;
 const board = document.getElementById("board");
+const menu = document.getElementById("menu");
+const gameWrap = document.getElementById("gameWrap");
+const levelLabel = document.getElementById("levelLabel");
+const backBtn = document.getElementById("backBtn");
 const fireworksCanvas = document.getElementById("fireworks");
 const winOverlay = document.getElementById("winOverlay");
 const fwCtx = fireworksCanvas.getContext("2d");
 
+let SIZE = 3;
 let tiles = [];
 let empty = { x: 2, y: 2 };
 let hasWon = false;
 
+/* ---------- Игра ---------- */
+
 function tileSize() {
   return board.clientWidth / SIZE;
+}
+
+function getBackgroundSizePercent() {
+  return SIZE * 100;
+}
+
+function resetBoard() {
+  board.innerHTML = "";
+  tiles = [];
+  hasWon = false;
+  empty = { x: SIZE - 1, y: SIZE - 1 };
+  board.style.pointerEvents = "auto";
+  winOverlay.style.display = "none";
+  fireworksCanvas.style.display = "none";
 }
 
 function createTiles() {
   for (let i = 0; i < SIZE * SIZE - 1; i++) {
     const div = document.createElement("div");
     div.className = "tile";
+    div.style.backgroundSize = `${getBackgroundSizePercent()}% ${getBackgroundSizePercent()}%`;
 
     const num = document.createElement("div");
     num.className = "number";
@@ -212,17 +314,13 @@ function tryMove(id) {
   }
 }
 
-function shuffle(moves = 200) {
-  hasWon = false;
-  board.style.pointerEvents = "auto";
-  winOverlay.style.display = "none";
-  fireworksCanvas.style.display = "none";
-
+function shuffle(moves = SIZE === 3 ? 200 : 300) {
   do {
     tiles.forEach((t, i) => {
       t.x = i % SIZE;
       t.y = Math.floor(i / SIZE);
     });
+
     empty = { x: SIZE - 1, y: SIZE - 1 };
 
     for (let i = 0; i < moves; i++) {
@@ -241,6 +339,23 @@ function shuffle(moves = 200) {
   } while (isSolved());
 
   render();
+}
+
+function startGame(size) {
+  SIZE = size;
+  levelLabel.textContent = `Уровень: ${SIZE} × ${SIZE}`;
+  menu.style.display = "none";
+  gameWrap.style.display = "flex";
+
+  resetBoard();
+  createTiles();
+  shuffle();
+}
+
+function backToMenu() {
+  resetBoard();
+  gameWrap.style.display = "none";
+  menu.style.display = "flex";
 }
 
 function triggerWin() {
@@ -342,13 +457,20 @@ function startFireworks() {
   updateFireworks();
 }
 
+/* ---------- События ---------- */
+
+document.querySelectorAll(".level-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    startGame(Number(btn.dataset.size));
+  });
+});
+
+backBtn.addEventListener("click", backToMenu);
+
 window.addEventListener("resize", () => {
   render();
   resizeFireworksCanvas();
 });
-
-createTiles();
-shuffle();
 </script>
 
 </body>
